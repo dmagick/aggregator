@@ -9,8 +9,7 @@
         <div id="header-wrapper">
             <span class="header-link" id="header">
                 <a href="~url::baseurl~/">Home</a>&nbsp;|&nbsp;
-                <a href="~url::baseurl~/feed">View Feeds</a>&nbsp;|&nbsp;
-                <a href="~url::baseurl~/feed/new">New Feed</a>&nbsp;|&nbsp;
+                <a href="~url::baseurl~/feed">Feed Info</a>&nbsp;|&nbsp;
             </span>
             <span class="header-link" id="header-right">
                 <a href="~url::baseurl~/user/logout">Logout</a>
