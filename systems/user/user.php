@@ -27,6 +27,13 @@ class user
     private static $_lockTimeLimit = 5;
 
     /**
+     * Keeps a cache of userid => username.
+     *
+     * @see getUsernameById
+     */
+    private static $_usernames = array();
+
+    /**
      * This does all the work when viewed in a browser.
      * It displays the appropriate template (with keyword replacements).
      *
@@ -289,6 +296,31 @@ class user
             session::remove('user');
         }
         url::redirect('/');
+    }
+
+    /**
+     * Get the username from a userid.
+     * The userid is stored in the session (so we don't store the username there),
+     * but then we need a way to get it back to the username which is what the db
+     * wants.
+     */
+    public static function getUsernameById($userid=NULL)
+    {
+        if (isset(self::$_usernames[$userid]) === TRUE) {
+            return self::$_usernames[$userid];
+        }
+
+        $sql   = "select username from ".db::getPrefix()."users where user_id=:userid";
+        $query = db::select($sql, array($userid));
+        $user  = db::fetch($query);
+
+        if (empty($user) === TRUE) {
+            throw new Exception('Unable to find username for userid '.$userid);
+        }
+
+        self::$_usernames[$userid] = $user['username'];
+
+        return self::$_usernames[$userid];
     }
 }
 
