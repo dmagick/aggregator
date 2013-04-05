@@ -19,6 +19,10 @@ $basedir = dirname(dirname(__FILE__));
  */
 require $basedir.'/config/config.php';
 
+if (function_exists('date_default_timezone_set') === TRUE) {
+    date_default_timezone_set('Australia/NSW');
+}
+
 /**
  * A list of systems.
  * All of these are included at the start.
@@ -30,10 +34,11 @@ require $basedir.'/config/config.php';
  * @see isValidSystem
  */
 $systems = array(
-	'db',
-	'frontend',
-	'template',
-	'url',
+    'db',
+    'feed',
+    'frontend',
+    'template',
+    'url',
     'session',
     'messagelog',
     'user',
@@ -60,12 +65,24 @@ function isValidSystem($systemName=NULL)
 }
 
 /**
+ * Change a postgres timestamp into a nice date.
+ *
+ * @param string $datetime The timestamp to transform.
+ */
+function niceDate($datetime)
+{
+    $time = strtotime($datetime);
+    $date = date('jS M, Y', $time);
+    return $date;
+}
+
+/**
  * Include all of our required systems.
  * Since we're using a consistent structure,
  * we can just loop over 'em to do it all in one go.
  */
 foreach ($systems as $system) {
-	require $basedir.'/systems/'.$system.'/'.$system.'.php';
+    require $basedir.'/systems/'.$system.'/'.$system.'.php';
 }
 
 session::setDir($config['cachedir']);
