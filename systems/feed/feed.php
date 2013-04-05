@@ -57,6 +57,83 @@ class feed
         url::redirect('feed/new');
     }
 
+    private static function updateFeeds()
+    {
+        if (isset($_POST) === FALSE || empty($_POST) === TRUE) {
+            return;
+        }
+
+        messagelog::enable();
+
+        $cleanValues = array();
+        $values      = array();
+        foreach (array_keys($_POST['delete']) as $id => $encodedUrl) {
+            $url                                = base64_decode($encodedUrl);
+            $values[':feed_url'.$id]            = $url;
+            $cleanValues[':clean_feed_url'.$id] = $url;
+        }
+        db::beginTransaction();
+
+        $result1 = FALSE;
+        $result2 = FALSE;
+        $result3 = FALSE;
+
+        /**
+         * Delete the link from users_feeds to the feed_url.
+         */
+        $sql  = "DELETE FROM ".db::getPrefix()."users_feeds WHERE username=:username AND feed_url IN (";
+        $sql .= implode(',', array_keys($values));
+        $sql .= ")";
+
+        $deleteValues              = $values;
+        $deleteValues[':username'] = user::getUsernameById(session::get('user'));
+
+        $result1 = db::execute($sql, $deleteValues);
+
+        if ($result1 === TRUE) {
+            /**
+             * Delete records about which urls have been viewed/not viewed in the users_urls list.
+             */
+            $sql  = "DELETE FROM ".db::getPrefix()."users_urls WHERE username=:username AND url IN (";
+            $sql .= " SELECT url FROM ".db::getPrefix()."urls WHERE feed_url IN (";
+            $sql .= implode(',', array_keys($values));
+            $sql .= ")";
+            $sql .= ")";
+            $deleteValues              = $values;
+            $deleteValues[':username'] = user::getUsernameById(session::get('user'));
+
+            $result2 = db::execute($sql, $deleteValues);
+
+            if ($result2 === TRUE) {
+                /**
+                 * Delete the feed completely, but only if no other users are using it.
+                 * If this deletes anything for a feed_url, it will clean up the urls table
+                 * for us (via foreign key).
+                 */
+                $sql  = "DELETE FROM ".db::getPrefix()."feeds f WHERE feed_url IN (";
+                $sql .= implode(',', array_keys($values));
+                $sql .= ")";
+                $sql .= " AND NOT EXISTS (";
+                $sql .= " SELECT feed_url FROM ".db::getPrefix()."users_feeds uf";
+                $sql .= " WHERE feed_url IN (";
+                $sql .= implode(',', array_keys($cleanValues));
+                $sql .= ") AND f.feed_url=uf.feed_url";
+                $sql .= ")";
+
+                $allValues = $values + $cleanValues;
+                $result3   = db::execute($sql, $allValues);
+            }
+        }
+
+        if ($result1 && $result2 && $result3) {
+            db::commitTransaction();
+            return TRUE;
+        }
+
+        db::rollbackTransaction();
+        return FALSE;
+    }
+
     /**
      * Saves a feed (for global fetching) and links the user to this feed as well.
      */
@@ -135,10 +212,11 @@ class feed
 
         foreach ($feeds as $feed) {
             $keywords = array(
-                         'feedurl'     => $feed['feed_url'],
-                         'feedtitle'   => $feed['feed_url'],
-                         'lastchecked' => 'Pending',
-                         'lastviewed'  => 'Never',
+                         'feedurl'        => $feed['feed_url'],
+                         'feedtitle'      => $feed['feed_url'],
+                         'lastchecked'    => 'Pending',
+                         'lastviewed'     => 'Never',
+                         'feedurl.encode' => base64_encode($feed['feed_url']),
                         );
 
             if (empty($feed['feed_title']) === FALSE && $feed['feed_title'] !== NULL) {
@@ -166,6 +244,8 @@ class feed
     public static function process($action='list')
     {
 
+        template::serveTemplate('feed.header');
+
         if (empty($action) === TRUE) {
             $action = 'list';
         }
@@ -175,12 +255,8 @@ class feed
         }
 
         if ($action === 'list') {
+            self::updateFeeds();
             return self::listFeeds();
-        }
-
-        if (strpos($action, 'edit') === 0) {
-            list($action, $id) = explode('/', $action);
-            return self::editFeed($id);
         }
 
         if (strpos($action, 'delete') === 0) {

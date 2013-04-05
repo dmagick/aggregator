@@ -8,4 +8,7 @@
         <td>
             ~lastviewed~
         </td>
+        <td align="center">
+            <input type="checkbox" name="delete[~feedurl.encode~]" />
+        </td>
     </tr>
