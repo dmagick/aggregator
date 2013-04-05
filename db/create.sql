@@ -17,6 +17,7 @@ create index aggregator_user_login_locks_details on aggregator_user_login_locks(
 
 create table aggregator_users
 (
+  user_id serial not null,
   username text not null primary key,
   passwd text not null,
   useractive char(1) default 'n'
@@ -25,6 +26,7 @@ create table aggregator_users
 create table aggregator_feeds
 (
 	feed_url text not null primary key,
+	feed_title text,
 	last_checked timestamp,
 	last_status int
 );
