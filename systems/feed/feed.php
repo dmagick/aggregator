@@ -265,5 +265,67 @@ class feed
 
         throw new Exception("Unknown action $action");
     }
+
+    public static function getFeeds()
+    {
+        $sql   = "SELECT feed_url, feed_hash, last_checked FROM ".db::getPrefix()."feeds";
+        $query = db::select($sql);
+        $feeds = db::fetchAll($query);
+        return $feeds;
+    }
+
+    public static function updateFeedStatus($feed_url, $info)
+    {
+        $bindVars = array(
+            ':feed_url' => $feed_url,
+        );
+
+        $sql  = "UPDATE ".db::getPrefix()."feeds ";
+        $sql .= " SET last_checked = NOW()";
+        foreach ($info as $key => $value) {
+            $sql .= ", ".$key." = :".$key;
+            $bindVars[":".$key] = $value;
+        }
+        $sql .= " WHERE feed_url=:feed_url";
+
+        $result = db::execute($sql, $bindVars);
+        return $result;
+    }
+
+    public static function saveFeedUrls($feed_url, $urls)
+    {
+
+        $urlsSql  = "INSERT INTO ".db::getPrefix()."urls (url, url_description, feed_url, last_checked, status)";
+        $urlsSql .= " SELECT ";
+        $urlsSql .= " :url, :url_description, :feed_url, NOW(), :status";
+        $urlsSql .= " WHERE NOT EXISTS";
+        $urlsSql .= " (SELECT url FROM ".db::getPrefix()."urls WHERE url=:urlCheck)";
+
+        $usersSql  = "INSERT INTO ".db::getPrefix()."users_urls(username, url, url_description, user_checked)";
+        $usersSql .= " SELECT username, :url, :url_description, NULL ";
+        $usersSql .= " FROM ".db::getPrefix()."users_feeds WHERE ";
+        $usersSql .= " feed_url=:feed_url";
+        $usersSql .= " AND NOT EXISTS ";
+        $usersSql .= " (SELECT url FROM ".db::getPrefix()."users_urls WHERE url=:urlCheck)";
+        foreach ($urls as $url => $description) {
+            $urlValues = array(
+                ':feed_url'        => $feed_url,
+                ':status'          => 0,
+                ':url'             => $url,
+                ':url_description' => $description,
+                ':urlCheck'        => $url,
+            );
+            db::execute($urlsSql, $urlValues);
+
+            $usersValues = array(
+                ':feed_url'        => $feed_url,
+                ':url'             => $url,
+                ':url_description' => $description,
+                ':urlCheck'        => $url,
+            );
+            db::execute($usersSql, $usersValues);
+        }
+    }
+
 }
 
