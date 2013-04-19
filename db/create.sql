@@ -36,6 +36,7 @@ create table aggregator_urls
 (
     url text not null primary key,
     url_description text,
+    url_title text,
     feed_url text references aggregator_feeds(feed_url) on delete cascade,
     last_checked timestamp,
     status int
@@ -53,6 +54,7 @@ create table aggregator_users_urls
     username text not null references aggregator_users(username) on delete cascade,
     url text not null references aggregator_urls(url) on delete cascade,
     url_description text,
+    url_title text,
     user_checked timestamp
 );
 
