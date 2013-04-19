@@ -47,6 +47,19 @@ class frontend
     {
         $page = self::getCurrentPage();
 
+        if (session::has('user') === FALSE) {
+            if (session::has('viewPage') === FALSE) {
+                session::set('viewPage', $page);
+            }
+            user::process();
+            return;
+        }
+
+        if (session::has('viewPage') === TRUE) {
+            $page = session::get('viewPage');
+            session::remove('viewPage');
+        }
+
         if (empty($page) === FALSE) {
             $info = trim($page, '/');
             $bits = explode('/', $info);
