@@ -135,3 +135,15 @@ select {
     float: left;
 }
 
+.url-view {
+    margin: 10px;
+    border: 1px solid;
+    max-width: 100%;
+}
+
+.url-view-feed-title {
+    font-weight: bold;
+    font-size: 16px;
+    padding-bottom: 10px;
+}
+
