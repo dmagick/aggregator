@@ -94,6 +94,15 @@ url::setUrl($config['url']);
 
 template::setDir($basedir.'/templates');
 
+if (isset($config['defaultpage']) === TRUE) {
+    if (empty($config['defaultpage']) === FALSE) {
+        if (in_array($config['defaultpage'], $systems) === FALSE) {
+            $systems[] = $config['defaultpage'];
+        }
+    }
+    frontend::setDefaultPage($config['defaultpage']);
+}
+
 try {
     db::connect($config['db']);
 } catch (Exception $e) {
