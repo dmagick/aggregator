@@ -17,7 +17,7 @@ class cron
 
     public static function run()
     {
-        $feeds = feed::getFeeds();
+        $feeds = feed::getAllFeeds();
 
         foreach ($feeds as $feed) {
             list($rc, $data) = self::fetch($feed['feed_url']);
@@ -38,7 +38,7 @@ class cron
 
             db::beginTransaction();
                 feed::updateFeedStatus($feed['feed_url'], $feedInfo);
-                feed::saveFeedUrls($feed['feed_url'], $info['urls']);
+                feed::saveFeedUrls($feed['feed_url'], $info);
             db::commitTransaction();
         }
     }
@@ -89,15 +89,20 @@ class cron
     {
         $xml = new SimpleXMLElement($data);
 
-        $title = trim(reset($xml->channel->title));
-        $urls  = array();
+        $feedtitle = trim(reset($xml->channel->title));
+        $urls      = array();
         foreach ($xml->channel->item as $subitem) {
             $url         = trim(reset($subitem->link));
             $description = trim(reset($subitem->description));
-            $urls[$url]  = $description;
+            $title       = trim(reset($subitem->title));
+            $urls[$url]  = array(
+                'title'       => $title,
+                'description' => $description,
+            );
         }
+
         return array(
-            'title' => $title,
+            'title' => $feedtitle,
             'urls'  => $urls,
         );
     }

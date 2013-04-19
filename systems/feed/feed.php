@@ -190,9 +190,9 @@ class feed
         return FALSE;
     }
 
-    public static function listFeeds()
+    public static function getFeedsForUser($userid=0)
     {
-        $username = user::getUsernameById(session::get('user'));
+        $username = user::getUsernameById($userid);
 
         $sql  = "SELECT uf.feed_url, uf.user_checked, f.feed_title, f.last_checked";
         $sql .= " FROM ".db::getPrefix()."users_feeds uf";
@@ -202,6 +202,13 @@ class feed
 
         $query = db::select($sql, array($username));
         $feeds = db::fetchAll($query);
+
+        return $feeds;
+    }
+
+    public static function listFeeds()
+    {
+        $feeds = self::getFeedsForUser(session::get('user'));
 
         if (empty($feeds) === TRUE) {
             template::serveTemplate('feed.list.empty');
@@ -241,32 +248,32 @@ class feed
         template::serveTemplate('feed.list.footer');
     }
 
-    public static function process($action='list')
+    public static function process($action='view')
     {
 
         template::serveTemplate('feed.header');
 
-        if (empty($action) === TRUE) {
-            $action = 'list';
+        switch ($action) {
+            case 'new':
+                return self::newFeed();
+                break;
+
+            case 'list':
+                // Delete any feeds if required.
+                self::updateFeeds();
+
+                // Then list 'em.
+                return self::listFeeds();
+                break;
+
+            default:
+                return self::viewUrls();
+                break;
         }
 
-        if ($action === 'new') {
-            return self::newFeed();
-        }
-
-        if ($action === 'list') {
-            self::updateFeeds();
-            return self::listFeeds();
-        }
-
-        if (strpos($action, 'delete') === 0) {
-            return self::deleteFeed();
-        }
-
-        throw new Exception("Unknown action $action");
     }
 
-    public static function getFeeds()
+    public static function getAllFeeds()
     {
         $sql   = "SELECT feed_url, feed_hash, last_checked FROM ".db::getPrefix()."feeds";
         $query = db::select($sql);
@@ -292,27 +299,29 @@ class feed
         return $result;
     }
 
-    public static function saveFeedUrls($feed_url, $urls)
+    public static function saveFeedUrls($feed_url, $data)
     {
 
-        $urlsSql  = "INSERT INTO ".db::getPrefix()."urls (url, url_description, feed_url, last_checked, status)";
+        $urlsSql  = "INSERT INTO ".db::getPrefix()."urls (url, url_description, url_title, feed_url, last_checked, status)";
         $urlsSql .= " SELECT ";
-        $urlsSql .= " :url, :url_description, :feed_url, NOW(), :status";
+        $urlsSql .= " :url, :url_description, :url_title, :feed_url, NOW(), :status";
         $urlsSql .= " WHERE NOT EXISTS";
         $urlsSql .= " (SELECT url FROM ".db::getPrefix()."urls WHERE url=:urlCheck)";
 
-        $usersSql  = "INSERT INTO ".db::getPrefix()."users_urls(username, url, url_description, user_checked)";
-        $usersSql .= " SELECT username, :url, :url_description, NULL ";
+        $usersSql  = "INSERT INTO ".db::getPrefix()."users_urls(username, url, url_description, url_title, user_checked)";
+        $usersSql .= " SELECT username, :url, :url_description, :url_title, NULL ";
         $usersSql .= " FROM ".db::getPrefix()."users_feeds WHERE ";
         $usersSql .= " feed_url=:feed_url";
         $usersSql .= " AND NOT EXISTS ";
         $usersSql .= " (SELECT url FROM ".db::getPrefix()."users_urls WHERE url=:urlCheck)";
-        foreach ($urls as $url => $description) {
+        foreach ($data['urls'] as $url => $info) {
+
             $urlValues = array(
                 ':feed_url'        => $feed_url,
                 ':status'          => 0,
                 ':url'             => $url,
-                ':url_description' => $description,
+                ':url_description' => $info['description'],
+                ':url_title'       => $info['title'],
                 ':urlCheck'        => $url,
             );
             db::execute($urlsSql, $urlValues);
@@ -320,10 +329,61 @@ class feed
             $usersValues = array(
                 ':feed_url'        => $feed_url,
                 ':url'             => $url,
-                ':url_description' => $description,
+                ':url_description' => $info['description'],
+                ':url_title'       => $info['title'],
                 ':urlCheck'        => $url,
             );
             db::execute($usersSql, $usersValues);
+        }
+    }
+
+    public static function getUrlsForUser($userid=0)
+    {
+        $username = user::getUsernameById($userid);
+
+        $sql  = "SELECT uu.url, uu.url_description, f.feed_title";
+        $sql .= " FROM ".db::getPrefix()."users_urls uu";
+        $sql .= " INNER JOIN ".db::getPrefix()."urls u ON (uu.url=u.url)";
+        $sql .= " INNER JOIN ".db::getPrefix()."feeds f ON (u.feed_url=f.feed_url)";
+        $sql .= " WHERE uu.username=:username";
+        $sql .= " AND uu.user_checked IS NULL";
+        $sql .= " ORDER BY u.last_checked ASC";
+
+        $query = db::select($sql, array($username));
+        $urls  = db::fetchAll($query);
+
+        return $urls;
+    }
+
+    public static function viewUrls()
+    {
+        $urls = self::getUrlsForUser(session::get('user'));
+
+        if (empty($urls) === TRUE) {
+            template::serveTemplate('feed.urls.empty');
+            return;
+        }
+
+        foreach ($urls as $urlid => $urlinfo) {
+            $preview = $urlinfo['url_description'];
+            if (strlen($preview) > 500) {
+                $preview  = substr($urlinfo['url_description'], 0, 495);
+                $preview .= ' ... ';
+            }
+            $keywords = array(
+                'feed.title'     => $urlinfo['feed_title'],
+                'preview'        => $preview,
+                'url'            => $urlinfo['url'],
+                'url.hash'       => md5($urlinfo['url']),
+                'url.hash.more'  => md5($urlinfo['url'].'more'),
+                'url.hash.title' => md5($urlinfo['url'].'title'),
+                'url.title'      => $urlinfo['url'],
+            );
+            foreach ($keywords as $keyword => $value) {
+                template::setKeyword('feed.urls.view', $keyword, $value);
+            }
+            template::serveTemplate('feed.urls.view');
+            template::display();
         }
     }
 
