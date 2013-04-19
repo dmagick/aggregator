@@ -53,7 +53,7 @@ class url
         if ($admin === TRUE) {
             $url .= 'admin/';
         }
-        $url .= 'index.php/'.ltrim($page, '/');
+        $url .= ltrim($page, '/');
 
         header('Location: '.$url, TRUE);
         exit;
