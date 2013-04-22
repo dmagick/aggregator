@@ -30,6 +30,11 @@ class cron
             }
 
             $info = self::parseContents($feed['feed_url'], $data);
+
+            if ($info === FALSE) {
+                continue;
+            }
+
             $feedInfo = array(
                 'last_status' => $rc,
                 'feed_hash'   => $hash,
@@ -80,9 +85,22 @@ class cron
 
             default:
                 $info = self::_parseHtml($data);
+                if ($info === FALSE) {
+                    echo "Trying to parse url (".$feed_url.") has failed\n";
+                }
         }
 
         return $info;
+    }
+
+    private static function _parseHtml($data)
+    {
+        // If the first few chars say it's xml, parse it as xml.
+        if (substr($data, 0, 5) === '<?xml') {
+            return self::_parseXml($data);
+        }
+
+        return FALSE;
     }
 
     private static function _parseXml($data)
