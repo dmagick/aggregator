@@ -228,11 +228,11 @@ class feed
             }
 
             if (empty($feed['last_checked']) === FALSE && $feed['last_checked'] !== NULL) {
-                $keywords['lastchecked'] = niceDate($feed['last_checked']);
+                $keywords['lastchecked'] = niceDateAndTime($feed['last_checked']);
             }
 
             if (empty($feed['user_checked']) === FALSE && $feed['user_checked'] !== NULL) {
-                $keywords['lastviewed'] = niceDate($feed['user_checked']);
+                $keywords['lastviewed'] = niceDateAndTime($feed['user_checked']);
             }
 
             foreach ($keywords as $keyword => $value) {

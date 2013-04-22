@@ -77,6 +77,18 @@ function niceDate($datetime)
 }
 
 /**
+ * Change a postgres timestamp into a nice date and time.
+ *
+ * @param string $datetime The timestamp to transform.
+ */
+function niceDateAndTime($datetime)
+{
+    $time = strtotime($datetime);
+    $date = date('g:i a, j/M/y', $time);
+    return $date;
+}
+
+/**
  * Include all of our required systems.
  * Since we're using a consistent structure,
  * we can just loop over 'em to do it all in one go.
