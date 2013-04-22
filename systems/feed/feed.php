@@ -63,8 +63,6 @@ class feed
             return;
         }
 
-        messagelog::enable();
-
         $cleanValues = array();
         $values      = array();
         foreach (array_keys($_POST['delete']) as $id => $encodedUrl) {
@@ -139,7 +137,6 @@ class feed
      */
     private static function saveFeed($feedInfo)
     {
-        messagelog::enable();
         db::beginTransaction();
 
         $sql  = "INSERT INTO ".db::getPrefix()."feeds (feed_url, feed_title, last_checked, last_status)";
