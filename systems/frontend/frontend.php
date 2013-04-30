@@ -68,7 +68,6 @@ class frontend
 
                 if ($system !== 'frontend') {
                     template::serveTemplate('header');
-                    template::display();
                 }
 
                 $bits   = implode('/', $bits);
