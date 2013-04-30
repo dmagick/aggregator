@@ -250,6 +250,10 @@ class feed
 
         template::serveTemplate('feed.header');
 
+        if (strpos($action, 'mark') === 0 || strpos($action, 'unmark') === 0) {
+            list($action, $url) = explode('/', $action);
+        }
+
         switch ($action) {
             case 'new':
                 return self::newFeed();
@@ -263,11 +267,58 @@ class feed
                 return self::listFeeds();
                 break;
 
+            case 'mark':
+                template::clearStack();
+                $result = self::updateUserUrlsStatus('read', $url);
+                if ($result === FALSE) {
+                    echo json_encode('There was a problem, try again');
+                }
+                exit;
+                break;
+
+            case 'unmark':
+                template::clearStack();
+                $result = self::updateUserUrlsStatus('unread', $url);
+                if ($result === FALSE) {
+                    echo json_encode('There was a problem, try again');
+                }
+                exit;
+                break;
+
             default:
                 return self::viewUrls();
                 break;
         }
+    }
 
+    private static function updateUserUrlsStatus($status='', $url=NULL)
+    {
+        $url = base64_decode($url);
+        if ($url === FALSE) {
+            return FALSE;
+        }
+
+        $newStatus = 'NOW()';
+        if ($status === 'unread') {
+            $newStatus = 'NULL';
+        }
+
+        $userid   = session::get('user');
+        $username = user::getUsernameById($userid);
+
+        $sql  = "UPDATE ".db::getPrefix()."users_urls";
+        $sql .= " SET user_checked = ".$newStatus;
+        $sql .= " WHERE ";
+        $sql .= " username=:username";
+        $sql .= " AND url=:url";
+
+        $bindVars = array(
+            ':username' => $username,
+            ':url'      => $url,
+        );
+        $result = db::execute($sql, $bindVars);
+
+        return $result;
     }
 
     public static function getAllFeeds()
@@ -361,20 +412,19 @@ class feed
             return;
         }
 
+        template::serveTemplate('feed.urls.header');
+
         foreach ($urls as $urlid => $urlinfo) {
-            $preview = $urlinfo['url_description'];
-            if (strlen($preview) > 500) {
-                $preview  = substr($urlinfo['url_description'], 0, 495);
-                $preview .= ' ... ';
-            }
             $keywords = array(
-                'feed.title'     => $urlinfo['feed_title'],
-                'preview'        => $preview,
-                'url'            => $urlinfo['url'],
-                'url.hash'       => md5($urlinfo['url']),
-                'url.hash.more'  => md5($urlinfo['url'].'more'),
-                'url.hash.title' => md5($urlinfo['url'].'title'),
-                'url.title'      => $urlinfo['url'],
+                'feed.title'      => $urlinfo['feed_title'],
+                'preview'         => $urlinfo['url_description'],
+                'url'             => $urlinfo['url'],
+                'url.hash'        => md5($urlinfo['url']),
+                'url.hash.footer' => md5($urlinfo['url'].'footer'),
+                'url.hash.more'   => md5($urlinfo['url'].'more'),
+                'url.hash.title'  => md5($urlinfo['url'].'title'),
+                'url.title'       => $urlinfo['url'],
+                'url.encoded'     => base64_encode($urlinfo['url']),
             );
             foreach ($keywords as $keyword => $value) {
                 template::setKeyword('feed.urls.view', $keyword, $value);
@@ -382,6 +432,7 @@ class feed
             template::serveTemplate('feed.urls.view');
             template::display();
         }
+        template::serveTemplate('feed.urls.footer');
     }
 
 }
