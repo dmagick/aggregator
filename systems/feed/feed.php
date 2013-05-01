@@ -187,15 +187,19 @@ class feed
         return FALSE;
     }
 
-    public static function getFeedsForUser($userid=0)
+    public static function getFeedsForUser($userid=0, $limit=0)
     {
         $username = user::getUsernameById($userid);
 
         $sql  = "SELECT uf.feed_url, uf.user_checked, f.feed_title, f.last_checked";
         $sql .= " FROM ".db::getPrefix()."users_feeds uf";
         $sql .= " INNER JOIN ".db::getPrefix()."feeds f ON (uf.feed_url=f.feed_url)";
+        $sql .= " INNER JOIN ".db::getPrefix()."urls u ON (f.feed_url=u.feed_url)";
         $sql .= " WHERE uf.username=:username";
-        $sql .= " ORDER BY f.feed_title ASC";
+        $sql .= " ORDER BY u.last_checked ASC";
+        if ($limit > 0) {
+            $sql .= " LIMIT ".$limit;
+        }
 
         $query = db::select($sql, array($username));
         $feeds = db::fetchAll($query);
@@ -205,7 +209,7 @@ class feed
 
     public static function listFeeds()
     {
-        $feeds = self::getFeedsForUser(session::get('user'));
+        $feeds = self::getFeedsForUser(session::get('user'), 20);
 
         if (empty($feeds) === TRUE) {
             template::serveTemplate('feed.list.empty');
