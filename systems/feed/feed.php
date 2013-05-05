@@ -259,10 +259,26 @@ class feed
     public static function process($action='view')
     {
 
+        $userGroups     = array();
+        $userFeedGroups = self::getFeedGroups();
+        foreach ($userFeedGroups as $k => $groupInfo) {
+            $groupname    = $groupInfo['groupname'];
+            if (empty($groupname) === TRUE) {
+                $groupname = 'Uncategorised';
+            }
+            $userGroups[] = '<a href="~url::baseurl~/feed/view/'.$groupname.'">'.$groupname.' ('.$groupInfo['unread'].')</a>';
+        }
+        template::setKeyword('feed.header', 'feedcategories', implode('&nbsp;|&nbsp;', $userGroups));
         template::serveTemplate('feed.header');
 
         if (strpos($action, 'mark') === 0 || strpos($action, 'unmark') === 0) {
             list($action, $url) = explode('/', $action);
+        }
+
+
+        $group = NULL;
+        if (strpos($action, 'view') === 0) {
+            list($action, $group) = explode('/', $action);
         }
 
         switch ($action) {
@@ -296,10 +312,31 @@ class feed
                 exit;
                 break;
 
+            case 'view':
+                if ($group === 'Uncategorised') {
+                    $group = NULL;
+                }
+
             default:
-                return self::viewUrls();
+                return self::viewUrls($group);
                 break;
         }
+    }
+
+    private static function getFeedGroups()
+    {
+        $userid   = session::get('user');
+        $username = user::getUsernameById($userid);
+
+        $sql  = "SELECT groupname, SUM(unread) AS unread";
+        $sql .= " FROM ".db::getPrefix()."users_feeds";
+        $sql .= " WHERE username=:username";
+        $sql .= " GROUP BY groupname";
+
+        $query  = db::select($sql, array($username));
+        $groups = db::fetchAll($query);
+
+        return $groups;
     }
 
     private static function updateUserUrlsStatus($status='', $url=NULL)
@@ -314,6 +351,8 @@ class feed
             $newStatus = 'NULL';
         }
 
+        db::beginTransaction();
+
         $userid   = session::get('user');
         $username = user::getUsernameById($userid);
 
@@ -327,7 +366,20 @@ class feed
             ':username' => $username,
             ':url'      => $url,
         );
-        $result = db::execute($sql, $bindVars);
+        $markResult = db::execute($sql, $bindVars);
+
+        $updateUnreadCountResult = self::updateUnreadCount($url, $userid, $status);
+
+        $result = FALSE;
+        if ($markResult === TRUE && $updateUnreadCountResult === TRUE) {
+            $result = TRUE;
+        }
+
+        if ($result === TRUE) {
+            db::commitTransaction();
+        } else {
+            db::rollbackTransaction();
+        }
 
         return $result;
     }
@@ -394,29 +446,95 @@ class feed
             );
             db::execute($usersSql, $usersValues);
         }
+
+        $unreadSql  = "SELECT u.feed_url, uu.username, count(*) AS unreadcount";
+        $unreadSql .= " FROM ".db::getPrefix()."users_urls uu ";
+        $unreadSql .= " INNER JOIN ".db::getPrefix()."urls u on (uu.url=u.url) ";
+        $unreadSql .= " WHERE user_checked IS NULL ";
+        $unreadSql .= " GROUP BY u.feed_url, uu.username";
+        $query      = db::select($unreadSql);
+        $urls       = db::fetchAll($query);
+        foreach ($urls as $urlid => $urlinfo) {
+            $updateUnreadSql  = "UPDATE ".db::getPrefix()."users_feeds ";
+            $updateUnreadSql .= " SET unread=:unread";
+            $updateUnreadSql .= " WHERE feed_url=:feed_url";
+            $updateUnreadSql .= " AND username=:username";
+
+            $userUnreadValues = array(
+                ':feed_url' => $urlinfo['feed_url'],
+                ':unread'   => $urlinfo['unreadcount'],
+                ':username' => $urlinfo['username'],
+            );
+
+            db::execute($updateUnreadSql, $userUnreadValues);
+        }
     }
 
-    public static function getUrlsForUser($userid=0)
+    public static function updateUnreadCount($user_url, $userid=NULL, $status='unread')
+    {
+        $bindVars = array(
+            ':url' => $user_url,
+        );
+
+        switch ($status) {
+            case 'read':
+                $direction = '-';
+                break;
+
+            default:
+                $direction = '+';
+        }
+
+        $sql  = "UPDATE ".db::getPrefix()."users_feeds SET unread=unread ".$direction." 1";
+        $sql .= " WHERE feed_url IN (";
+        $sql .= "   SELECT feed_url FROM ".db::getPrefix()."urls WHERE ";
+        $sql .= "   url=:url";
+        $sql .= ")";
+
+        if ($userid !== NULL) {
+            $username  = user::getUsernameById($userid);
+            $sql      .= " AND username=:username";
+            $bindVars[':username'] = $username;
+        }
+
+        $result = db::execute($sql, $bindVars);
+        return $result;
+    }
+
+    public static function getUrlsForUser($userid=0, $groupname=NULL)
     {
         $username = user::getUsernameById($userid);
+
+        $bindVars = array(
+            ':username' => $username,
+        );
+
+        messagelog::enable();
 
         $sql  = "SELECT uu.url, uu.url_description, f.feed_title";
         $sql .= " FROM ".db::getPrefix()."users_urls uu";
         $sql .= " INNER JOIN ".db::getPrefix()."urls u ON (uu.url=u.url)";
         $sql .= " INNER JOIN ".db::getPrefix()."feeds f ON (u.feed_url=f.feed_url)";
+        $sql .= " INNER JOIN ".db::getPrefix()."users_feeds uf ON (uf.feed_url=f.feed_url)";
         $sql .= " WHERE uu.username=:username";
+
+        if ($groupname !== NULL) {
+            $sql .= " AND uf.groupname=:groupname";
+            $bindVars[':groupname'] = $groupname;
+        }
+
         $sql .= " AND uu.user_checked IS NULL";
         $sql .= " ORDER BY u.last_checked ASC";
 
-        $query = db::select($sql, array($username));
+        $query = db::select($sql, $bindVars);
         $urls  = db::fetchAll($query);
 
         return $urls;
     }
 
-    public static function viewUrls()
+    public static function viewUrls($groupname=NULL)
     {
-        $urls = self::getUrlsForUser(session::get('user'));
+        $urls = self::getUrlsForUser(session::get('user'), $groupname);
 
         if (empty($urls) === TRUE) {
             template::serveTemplate('feed.urls.empty');
