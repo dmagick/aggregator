@@ -28,6 +28,11 @@ class feed
             $title = $_POST['feed_title'];
         }
 
+        $groupname = NULL;
+        if (empty($_POST['groupname']) === FALSE) {
+            $groupname = $_POST['groupname'];
+        }
+
         if (
             empty($_POST['feed_url']) === TRUE || 
             $_POST['feed_url'] === 'http://' ||
@@ -42,6 +47,7 @@ class feed
         $feedInfo = array(
                      'feed_url'   => $_POST['feed_url'],
                      'feed_title' => $title,
+                     'groupname'  => $groupname,
                      'user_id'    => session::get('user'),
                     );
         $result   = self::saveFeed($feedInfo);
@@ -159,9 +165,9 @@ class feed
         if ($result1 === TRUE) {
             $username = user::getUsernameById($feedInfo['user_id']);
 
-            $sql  = "INSERT INTO ".db::getPrefix()."users_feeds (username, feed_url, user_checked)";
+            $sql  = "INSERT INTO ".db::getPrefix()."users_feeds (username, feed_url, groupname, user_checked)";
             $sql .= " SELECT ";
-            $sql .= ":username, :feed_url, :user_checked";
+            $sql .= ":username, :feed_url, :groupname, :user_checked";
             $sql .= " WHERE NOT EXISTS (";
             $sql .= " SELECT feed_url FROM ".db::getPrefix()."users_feeds ";
             $sql .= " WHERE ";
@@ -172,6 +178,7 @@ class feed
             $values  = array(
                         ':feed_url'        => $feedInfo['feed_url'],
                         ':feed_url_exists' => $feedInfo['feed_url'],
+                        ':groupname'       => $feedInfo['groupname'],
                         ':username'        => $username,
                         ':username_exists' => $username,
                         ':user_checked'    => NULL,
@@ -191,12 +198,11 @@ class feed
     {
         $username = user::getUsernameById($userid);
 
-        $sql  = "SELECT uf.feed_url, uf.user_checked, f.feed_title, f.last_checked";
+        $sql  = "SELECT uf.feed_url, uf.user_checked, uf.groupname, f.feed_title, f.last_checked";
         $sql .= " FROM ".db::getPrefix()."users_feeds uf";
         $sql .= " INNER JOIN ".db::getPrefix()."feeds f ON (uf.feed_url=f.feed_url)";
-        $sql .= " INNER JOIN ".db::getPrefix()."urls u ON (f.feed_url=u.feed_url)";
         $sql .= " WHERE uf.username=:username";
-        $sql .= " ORDER BY u.last_checked ASC";
+        $sql .= " ORDER BY uf.user_checked ASC";
         if ($limit > 0) {
             $sql .= " LIMIT ".$limit;
         }
@@ -222,6 +228,7 @@ class feed
             $keywords = array(
                          'feedurl'        => $feed['feed_url'],
                          'feedtitle'      => $feed['feed_url'],
+                         'groupname'      => $feed['groupname'],
                          'lastchecked'    => 'Pending',
                          'lastviewed'     => 'Never',
                          'feedurl.encode' => base64_encode($feed['feed_url']),

@@ -16,6 +16,13 @@
             <input type="text" name="feed_title" id="feed_title" />
         </div>
 
+        <div class="account-field">
+            Group (optional):
+        </div>
+        <div class="account-value">
+            <input type="text" name="groupname" id="groupname" />
+        </div>
+
         <div class="account-value">
             <br/>
             <input type="submit" value="Add Feed" />

@@ -46,7 +46,8 @@ create table aggregator_users_feeds
 (
     username text not null references aggregator_users(username) on delete cascade,
     feed_url text not null references aggregator_feeds(feed_url) on delete cascade,
-    user_checked timestamp
+    user_checked timestamp,
+    groupname text
 );
 
 create table aggregator_users_urls

@@ -3,6 +3,9 @@
             <a href="~feedurl~" target="_blank">~feedtitle~</a>
         </td>
         <td>
+            ~groupname~
+        </td>
+        <td>
             ~lastchecked~
         </td>
         <td>
