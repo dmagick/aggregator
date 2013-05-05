@@ -313,10 +313,6 @@ class feed
                 break;
 
             case 'view':
-                if ($group === 'Uncategorised') {
-                    $group = NULL;
-                }
-
             default:
                 return self::viewUrls($group);
                 break;
@@ -519,8 +515,12 @@ class feed
         $sql .= " WHERE uu.username=:username";
 
         if ($groupname !== NULL) {
-            $sql .= " AND uf.groupname=:groupname";
-            $bindVars[':groupname'] = $groupname;
+            if ($groupname === 'Uncategorised') {
+                $sql .= " AND uf.groupname IS NULL";
+            } else {
+                $sql .= " AND uf.groupname=:groupname";
+                $bindVars[':groupname'] = $groupname;
+            }
         }
 
         $sql .= " AND uu.user_checked IS NULL";
