@@ -508,8 +508,6 @@ class feed
             ':username' => $username,
         );
 
-        messagelog::enable();
-
         $sql  = "SELECT uu.url, uu.url_description, f.feed_title";
         $sql .= " FROM ".db::getPrefix()."users_urls uu";
         $sql .= " INNER JOIN ".db::getPrefix()."urls u ON (uu.url=u.url)";
