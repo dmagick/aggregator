@@ -272,9 +272,12 @@ class feed
         template::serveTemplate('feed.header');
 
         if (strpos($action, 'mark') === 0 || strpos($action, 'unmark') === 0) {
-            list($action, $url) = explode('/', $action);
+            // base64_encode can use '/' in the output, so we can't just explode
+            // and have action and url.
+            $parts  = explode('/', $action);
+            $action = array_shift($parts);
+            $url    = implode('/', $parts);
         }
-
 
         $group = NULL;
         if (strpos($action, 'view') === 0) {
