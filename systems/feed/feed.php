@@ -141,7 +141,7 @@ class feed
     /**
      * Saves a feed (for global fetching) and links the user to this feed as well.
      */
-    private static function saveFeed($feedInfo)
+    public static function saveFeed($feedInfo)
     {
         db::beginTransaction();
 
@@ -215,7 +215,7 @@ class feed
 
     public static function listFeeds()
     {
-        $feeds = self::getFeedsForUser(session::get('user'), 20);
+        $feeds = self::getFeedsForUser(session::get('user'));
 
         if (empty($feeds) === TRUE) {
             template::serveTemplate('feed.list.empty');
@@ -266,7 +266,7 @@ class feed
             if (empty($groupname) === TRUE) {
                 $groupname = 'Uncategorised';
             }
-            $userGroups[] = '<a href="~url::baseurl~/feed/view/'.$groupname.'">'.$groupname.' ('.$groupInfo['unread'].')</a>';
+            $userGroups[] = '<a href="~url::baseurl~/feed/view/'.urlencode($groupname).'">'.$groupname.' ('.$groupInfo['unread'].')</a>';
         }
         template::setKeyword('feed.header', 'feedcategories', implode('&nbsp;|&nbsp;', $userGroups));
         template::serveTemplate('feed.header');
@@ -282,6 +282,9 @@ class feed
         $group = NULL;
         if (strpos($action, 'view') === 0) {
             list($action, $group) = explode('/', $action);
+            if (empty($group) === FALSE) {
+                $group = urldecode($group);
+            }
         }
 
         switch ($action) {
@@ -544,6 +547,7 @@ class feed
 
         template::serveTemplate('feed.urls.header');
 
+        $pos = 1;
         foreach ($urls as $urlid => $urlinfo) {
             $keywords = array(
                 'feed.title'      => $urlinfo['feed_title'],
@@ -555,12 +559,14 @@ class feed
                 'url.hash.title'  => md5($urlinfo['url'].'title'),
                 'url.title'       => $urlinfo['url'],
                 'url.encoded'     => base64_encode($urlinfo['url']),
+                'index'           => $pos,
             );
             foreach ($keywords as $keyword => $value) {
                 template::setKeyword('feed.urls.view', $keyword, $value);
             }
             template::serveTemplate('feed.urls.view');
             template::display();
+            $pos++;
         }
         template::serveTemplate('feed.urls.footer');
     }
