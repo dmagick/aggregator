@@ -59,7 +59,6 @@ class user
         }
 
         template::serveTemplate('header.empty');
-        template::display();
 
         if (empty($_POST) === TRUE) {
             $token = self::setToken();
