@@ -17,7 +17,10 @@ class cron
 
     public static function run()
     {
-        $feeds = feed::getAllFeeds();
+        // Use NULLS FIRST so new feeds get done first.
+        // Otherwise they'll never get done since we're only
+        // processing 20 at a time.
+        $feeds = feed::getAllFeeds("last_checked ASC NULLS FIRST", 20);
 
         foreach ($feeds as $feed) {
             list($rc, $data) = self::fetch($feed['feed_url']);
@@ -54,13 +57,21 @@ class cron
         $data = '';
 
         $handle = curl_init();
+        curl_setopt($handle, CURLOPT_MAXREDIRS, 3);
+        curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($handle, CURLOPT_TIMEOUT, 3);
         curl_setopt($handle, CURLOPT_URL, $url);
         curl_setopt($handle, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($handle, CURLOPT_FOLLOWLOCATION, TRUE);
 
         $rc   = curl_getinfo($handle, CURLINFO_HTTP_CODE);
         $data = curl_exec($handle);
 
         curl_close($handle);
+
+        if (is_string($data) === TRUE) {
+            $data = trim($data);
+        }
 
         return array($rc, $data);
     }
@@ -74,6 +85,11 @@ class cron
         );
 
         $ext = substr(strrchr($feed_url, '.'), 1);
+
+        if (empty($data) === TRUE) {
+            echo "Feed url ".$feed_url." is returning empty.\n";
+            return $info;
+        }
 
         switch ($ext)
         {
@@ -105,7 +121,12 @@ class cron
 
     private static function _parseXml($data)
     {
-        $xml = new SimpleXMLElement($data);
+        try {
+            $xml = new SimpleXMLElement($data);
+        } catch (Exception $e) {
+            echo "Unable to parse data ".$data." as xml.\n";
+            return FALSE;
+        }
 
         $feedtitle = trim(reset($xml->channel->title));
         $urls      = array();

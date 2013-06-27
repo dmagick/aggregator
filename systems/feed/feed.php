@@ -386,9 +386,17 @@ class feed
         return $result;
     }
 
-    public static function getAllFeeds()
+    public static function getAllFeeds($order=NULL, $limit=0)
     {
         $sql   = "SELECT feed_url, feed_hash, last_checked FROM ".db::getPrefix()."feeds";
+        if ($order !== NULL) {
+            $sql .= " ORDER BY ".$order;
+        }
+
+        if ($limit > 0) {
+            $sql .= " LIMIT ".$limit;
+        }
+
         $query = db::select($sql);
         $feeds = db::fetchAll($query);
         return $feeds;
@@ -503,7 +511,7 @@ class feed
         return $result;
     }
 
-    public static function getUrlsForUser($userid=0, $groupname=NULL)
+    public static function getUrlsForUser($userid=0, $groupname=NULL, $limit=0)
     {
         $username = user::getUsernameById($userid);
 
@@ -530,6 +538,10 @@ class feed
         $sql .= " AND uu.user_checked IS NULL";
         $sql .= " ORDER BY u.last_checked ASC";
 
+        if ($limit > 0) {
+            $sql .= " LIMIT ".$limit;
+        }
+
         $query = db::select($sql, $bindVars);
         $urls  = db::fetchAll($query);
 
@@ -538,7 +550,7 @@ class feed
 
     public static function viewUrls($groupname=NULL)
     {
-        $urls = self::getUrlsForUser(session::get('user'), $groupname);
+        $urls = self::getUrlsForUser(session::get('user'), $groupname, 20);
 
         if (empty($urls) === TRUE) {
             template::serveTemplate('feed.urls.empty');
